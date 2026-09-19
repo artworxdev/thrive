@@ -123,5 +123,14 @@ export function stepBodies(
     if (a === undefined || b === undefined) continue;
     if (resolveCollision(a, b)) encounters.push([idA, idB]);
   }
+
+  // Re-clamp positions after collision resolution, since separation can push
+  // bodies outside the world bounds. Direction is left unchanged; the next
+  // sub-step's bounceWalls handles any redirects needed.
+  for (const body of bodies) {
+    body.x = Math.min(world.width - body.radius, Math.max(body.radius, body.x));
+    body.y = Math.min(world.height - body.radius, Math.max(body.radius, body.y));
+  }
+
   return encounters;
 }
