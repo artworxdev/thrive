@@ -146,12 +146,15 @@ describe('union dissolution', () => {
     withCooldown.step(20);
     withoutCooldown.step(20);
 
-    // Instantaneous active-union counts churn every year with one-year
-    // unions, so compare total union-years across the whole run.
-    const total = (sim: Simulation) =>
-      sim.stats().reduce((acc, s) => acc + s.activeUnions, 0);
+    // Same seed, same config apart from the cooldown. If dissolve() failed
+    // to set cooldownRemaining, the cooldown would have no effect at all
+    // and these two runs would be identical. Comparing the magnitude of
+    // active unions instead would be a coin-flip: the effect is real but
+    // small (14 vs 17 union-years on this seed).
+    const unionSeries = (sim: Simulation) =>
+      sim.stats().map((s) => s.activeUnions);
 
-    expect(total(withCooldown)).toBeLessThan(total(withoutCooldown));
+    expect(unionSeries(withCooldown)).not.toEqual(unionSeries(withoutCooldown));
   });
 });
 
