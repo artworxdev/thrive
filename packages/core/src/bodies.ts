@@ -30,7 +30,20 @@ export function buildBodies(agents: Agent[], config: SimConfig): PhysicsBody[] {
     }
 
     const partner = byId.get(agent.partnerId);
-    if (partner === undefined) continue; // partner already removed
+    if (partner === undefined) {
+      // Partner is gone. Keep this agent in the simulation as a solo body
+      // rather than silently dropping it from physics.
+      bodies.push({
+        agentId: agent.id,
+        x: agent.x,
+        y: agent.y,
+        dx: agent.dx,
+        dy: agent.dy,
+        speed: agent.speed,
+        radius: config.agentRadius,
+      });
+      continue;
+    }
     if (agent.id > partner.id) continue; // the lower id leads
 
     bodies.push({

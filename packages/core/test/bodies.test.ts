@@ -53,10 +53,13 @@ describe('buildBodies', () => {
     );
   });
 
-  it('skips an agent whose partner is missing', () => {
+  it('gives a solo body to an agent whose partner is missing', () => {
     const a = make(3, 100, 100);
     a.partnerId = 99;
-    expect(buildBodies([a], DEFAULT_CONFIG)).toHaveLength(0);
+    const bodies = buildBodies([a], DEFAULT_CONFIG);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]!.agentId).toBe(3);
+    expect(bodies[0]!.radius).toBe(DEFAULT_CONFIG.agentRadius);
   });
 });
 
