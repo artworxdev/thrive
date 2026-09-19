@@ -8,7 +8,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b packages/core packages/worker packages/ui packages/cli",
-    "golden:update": "npx tsx packages/cli/scripts/update-golden.ts"
+    "golden:update": "npx tsx packages/cli/scripts/update-golden.ts",
+    "build": "npm run build --workspace @thrive/ui"
   },
   "devDependencies": {
     "typescript": "^5.6.3",
