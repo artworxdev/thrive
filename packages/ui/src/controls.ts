@@ -31,6 +31,8 @@ export class ConfigEditor {
   private showError(message: string): void {
     this.errorEl.textContent = message;
     this.errorEl.hidden = false;
+    const details = this.textarea.closest('details');
+    if (details !== null) details.open = true;
   }
 
   private clearError(): void {

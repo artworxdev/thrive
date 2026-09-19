@@ -145,7 +145,10 @@ requireElement<HTMLButtonElement>('stepYear').addEventListener('click', () => {
 
 requireElement<HTMLButtonElement>('reset').addEventListener('click', () => {
   const config = editor.read();
-  if (config === null) return;
+  if (config === null) {
+    setStatus('Configuration is invalid — see the Configuration panel');
+    return;
+  }
   series = [];
   setStatus(null);
   client.reset(config, currentSeed());
