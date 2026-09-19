@@ -34,8 +34,15 @@ The application is then served at http://localhost:8080.
 
 ```bash
 mkdir -p out
-docker compose run --rm sim --years 500 --seed 42 --out /out/run.csv
+docker compose run --rm sim
 ```
+
+This runs `--years 500 --seed 42 --out /out/run.csv` by default, writing
+`out/run.csv` and its `out/run.csv.config.json` sidecar. Override any of
+these by passing your own flags after `sim`, e.g.
+`docker compose run --rm sim --years 200 --seed 7 --out /out/run.csv` (note
+that supplying any flags replaces the whole default command, so include
+`--out` yourself if you still want the sidecar written).
 
 ## Reproducibility
 
