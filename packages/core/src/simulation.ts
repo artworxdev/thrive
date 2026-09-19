@@ -16,6 +16,7 @@ import { StatsRecorder, computeSample } from './stats.js';
 import { UnionRegistry } from './union.js';
 import type { Union } from './union.js';
 import { canFormUnion } from './rules/pairing.js';
+import { createOffspring } from './rules/birth.js';
 
 export class Simulation {
   protected readonly config: SimConfig;
@@ -151,9 +152,44 @@ export class Simulation {
     }
   }
 
-  /** Extension point — Task 10 implements births here. */
   protected annualEvents(): void {
     this.expireUnions();
+    this.applyBirths();
+  }
+
+  /**
+   * One birth roll per surviving union. The roll is consumed before the
+   * capacity check so that a capped run and an uncapped run draw the same
+   * randomness and stay comparable.
+   */
+  protected applyBirths(): void {
+    if (this.config.birthChancePerYear <= 0) return;
+    const year = this.year;
+    const stream = this.rng.stream('birth');
+
+    for (const union of this.unions.all()) {
+      const a = this.byId.get(union.a);
+      const b = this.byId.get(union.b);
+      if (a === undefined || b === undefined) continue;
+      if (!stream.bool(this.config.birthChancePerYear)) continue;
+
+      if (this.agents.length >= this.config.maxAgents) {
+        this.suppressedBirthsThisYear++;
+        continue;
+      }
+
+      const child = createOffspring({
+        id: this.nextAgentId++,
+        x: (a.x + b.x) / 2,
+        y: (a.y + b.y) / 2,
+        birthYear: year,
+        config: this.config,
+        rng: this.rng,
+      });
+      this.agents.push(child);
+      this.byId.set(child.id, child);
+      this.birthsThisYear++;
+    }
   }
 
   protected expireUnions(): void {
