@@ -17,7 +17,7 @@ export interface SimClientHandlers {
 export class SimClient {
   private readonly worker: Worker;
 
-  constructor(private readonly handlers: SimClientHandlers) {
+  constructor(handlers: SimClientHandlers) {
     this.worker = new Worker(new URL('./sim.worker.ts', import.meta.url), {
       type: 'module',
     });

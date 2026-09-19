@@ -1,5 +1,4 @@
 import { Simulation } from '@thrive/core';
-import type { SimConfig } from '@thrive/core';
 import { Clock } from './clock.js';
 import type { ToWorker, FromWorker } from './protocol.js';
 
@@ -9,7 +8,6 @@ const CHUNK_YEARS = 5;
 const TICK_MS = 16;
 
 let sim: Simulation | null = null;
-let config: SimConfig | null = null;
 let clock = new Clock(1);
 let running = false;
 let ticking: ReturnType<typeof setInterval> | null = null;
@@ -39,18 +37,26 @@ function stopTicking(): void {
 }
 
 function tick(): void {
-  if (sim === null) return;
-  const now = Date.now();
-  const elapsed = now - lastTickAt;
-  lastTickAt = now;
+  try {
+    if (sim === null) return;
+    const now = Date.now();
+    const elapsed = now - lastTickAt;
+    lastTickAt = now;
 
-  sim.step(clock.advance(elapsed));
-  postSnapshot();
-
-  if (sim.extinct) {
-    stopTicking();
-    post({ type: 'extinct', year: sim.year });
+    sim.step(clock.advance(elapsed));
     postSnapshot();
+
+    if (sim.extinct) {
+      stopTicking();
+      post({ type: 'extinct', year: sim.year });
+      postSnapshot();
+    }
+  } catch (error) {
+    stopTicking();
+    post({
+      type: 'error',
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -68,18 +74,26 @@ function runToYear(target: number): void {
   cancelRequested = false;
 
   const chunk = (): void => {
-    if (sim === null) return;
-    if (cancelRequested || sim.extinct || sim.year >= target) {
-      post({ type: 'progressDone' });
-      postSnapshot();
-      if (sim.extinct) post({ type: 'extinct', year: sim.year });
-      return;
-    }
+    try {
+      if (sim === null) return;
+      if (cancelRequested || sim.extinct || sim.year >= target) {
+        post({ type: 'progressDone' });
+        postSnapshot();
+        if (sim.extinct) post({ type: 'extinct', year: sim.year });
+        return;
+      }
 
-    sim.step(Math.min(CHUNK_YEARS, target - sim.year));
-    post({ type: 'progress', year: sim.year, targetYear: target });
-    postSnapshot();
-    setTimeout(chunk, 0);
+      sim.step(Math.min(CHUNK_YEARS, target - sim.year));
+      post({ type: 'progress', year: sim.year, targetYear: target });
+      postSnapshot();
+      setTimeout(chunk, 0);
+    } catch (error) {
+      post({ type: 'progressDone' });
+      post({
+        type: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   };
 
   chunk();
@@ -91,9 +105,8 @@ function handle(message: ToWorker): void {
     case 'reset': {
       stopTicking();
       cancelRequested = true;
-      config = message.config;
       if (message.type === 'init') clock = new Clock(message.secondsPerYear);
-      sim = Simulation.init(config, message.seed);
+      sim = Simulation.init(message.config, message.seed);
       postSnapshot();
       break;
     }
