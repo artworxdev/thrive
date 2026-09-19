@@ -13,6 +13,9 @@ import { buildBodies, applyBodies } from './bodies.js';
 import { ageOf, createInitialPopulation } from './agent.js';
 import type { Agent } from './agent.js';
 import { StatsRecorder, computeSample } from './stats.js';
+import { UnionRegistry } from './union.js';
+import type { Union } from './union.js';
+import { canFormUnion } from './rules/pairing.js';
 
 export class Simulation {
   protected readonly config: SimConfig;
@@ -25,6 +28,7 @@ export class Simulation {
   protected agents: Agent[];
   protected byId = new Map<AgentId, Agent>();
   protected nextAgentId: number;
+  protected readonly unions = new UnionRegistry();
 
   /** Integer sub-step counter — the authoritative clock, so year boundaries
    *  land exactly and never drift through floating-point accumulation. */
@@ -123,14 +127,40 @@ export class Simulation {
     }
   }
 
-  /** Extension point — Task 9 implements union formation here. */
-  protected onEncounters(_encounters: Array<[AgentId, AgentId]>): void {
-    // No reproduction in this task.
+  protected onEncounters(encounters: Array<[AgentId, AgentId]>): void {
+    if (this.config.union.chance <= 0) return;
+    const year = this.year;
+    const stream = this.rng.stream('union');
+
+    for (const [idA, idB] of encounters) {
+      const a = this.byId.get(idA);
+      const b = this.byId.get(idB);
+      if (a === undefined || b === undefined) continue;
+      if (!canFormUnion(a, b, year, this.config)) continue;
+      if (!stream.bool(this.config.union.chance)) continue;
+
+      const duration = stream.range(
+        this.config.union.minDurationYears,
+        this.config.union.maxDurationYears,
+      );
+      const union = this.unions.create(a.id, b.id, year, duration);
+      a.partnerId = b.id;
+      b.partnerId = a.id;
+      a.unionId = union.id;
+      b.unionId = union.id;
+    }
   }
 
-  /** Extension point — Task 10 implements union expiry and births here. */
+  /** Extension point — Task 10 implements births here. */
   protected annualEvents(): void {
-    // No reproduction in this task.
+    this.expireUnions();
+  }
+
+  protected expireUnions(): void {
+    const year = this.year;
+    for (const union of this.unions.all()) {
+      if (union.endYear <= year) this.dissolve(union, null);
+    }
   }
 
   protected annualTick(): void {
@@ -158,9 +188,28 @@ export class Simulation {
     this.agents = survivors;
   }
 
-  /** Extension point — Task 10 releases the surviving partner here. */
-  protected onDeath(_agent: Agent): void {
-    // No unions in this task.
+  protected onDeath(agent: Agent): void {
+    if (agent.unionId === null) return;
+    const union = this.unions.get(agent.unionId);
+    if (union !== undefined) this.dissolve(union, agent.id);
+    agent.partnerId = null;
+    agent.unionId = null;
+  }
+
+  /**
+   * Ends a union and releases whichever partners are still alive, applying the
+   * re-pair cooldown. `exceptId` is the agent who has just died, if any.
+   */
+  protected dissolve(union: Union, exceptId: AgentId | null): void {
+    for (const id of [union.a, union.b]) {
+      if (id === exceptId) continue;
+      const survivor = this.byId.get(id);
+      if (survivor === undefined) continue;
+      survivor.partnerId = null;
+      survivor.unionId = null;
+      survivor.cooldownRemaining = this.config.union.repairCooldownYears;
+    }
+    this.unions.remove(union.id);
   }
 
   protected decrementCooldowns(): void {
@@ -172,7 +221,7 @@ export class Simulation {
   }
 
   protected activeUnionCount(): number {
-    return 0;
+    return this.unions.size;
   }
 
   protected buildSample(): StatsSample {
