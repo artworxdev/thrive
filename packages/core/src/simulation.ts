@@ -244,9 +244,9 @@ export class Simulation {
   }
 
   protected annualTick(): void {
+    this.decrementCooldowns();
     this.applyDeaths();
     this.annualEvents();
-    this.decrementCooldowns();
     this.recorder.record(this.buildSample());
     this.birthsThisYear = 0;
     this.deathsThisYear = 0;
@@ -288,6 +288,7 @@ export class Simulation {
       survivor.partnerId = null;
       survivor.unionId = null;
       survivor.cooldownRemaining = this.config.union.repairCooldownYears;
+      survivor.speed = survivor.ownSpeed;
     }
     this.unions.remove(union.id);
   }

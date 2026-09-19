@@ -2,11 +2,42 @@ import { describe, it, expect } from 'vitest';
 import { DEFAULT_CONFIG } from '../src/config.js';
 import type { SimConfig } from '../src/config.js';
 import { Simulation } from '../src/simulation.js';
+import type { Union } from '../src/union.js';
+import type { AgentId } from '../src/types.js';
 
 function config(over: (c: SimConfig) => void): SimConfig {
   const c = structuredClone(DEFAULT_CONFIG);
   over(c);
   return c;
+}
+
+/**
+ * Exposes the protected pieces needed to drive a union to dissolution
+ * directly, without depending on the physics/RNG to produce an encounter.
+ */
+class TestableSimulation extends Simulation {
+  static override init(config: SimConfig, seed: number): TestableSimulation {
+    return new TestableSimulation(config, seed);
+  }
+
+  createUnion(a: AgentId, b: AgentId, startYear: number, durationYears: number): Union {
+    const union = this.unions.create(a, b, startYear, durationYears);
+    const agentA = this.byId.get(a)!;
+    const agentB = this.byId.get(b)!;
+    agentA.partnerId = b;
+    agentB.partnerId = a;
+    agentA.unionId = union.id;
+    agentB.unionId = union.id;
+    return union;
+  }
+
+  agent(id: AgentId) {
+    return this.byId.get(id)!;
+  }
+
+  dissolveUnion(union: Union, exceptId: AgentId | null): void {
+    this.dissolve(union, exceptId);
+  }
 }
 
 describe('union formation', () => {
@@ -155,6 +186,76 @@ describe('union dissolution', () => {
       sim.stats().map((s) => s.activeUnions);
 
     expect(unionSeries(withCooldown)).not.toEqual(unionSeries(withoutCooldown));
+  });
+
+  it('a 1-year cooldown must differ from a 0-year cooldown (pins the exact magnitude)', () => {
+    // Regression test for an off-by-one in annualTick's ordering: dissolve()
+    // sets cooldownRemaining = repairCooldownYears, and that used to be
+    // decremented in the very same tick it was set (decrementCooldowns ran
+    // after annualEvents, in the same annualTick call as the dissolutions
+    // that annualEvents triggers). That silently ate one full year off
+    // every cooldown, so repairCooldownYears: 1 behaved exactly like 0 — no
+    // cooldown at all. A coarse 50-vs-0 comparison can't catch that,
+    // because both magnitudes still "work" in the broken code, just shifted
+    // by one year. Comparing 1 vs 0 is the sharpest possible check: with the
+    // bug, these two configs are byte-identical runs; fixed, they must
+    // diverge as soon as any union dissolves and its survivor tries to
+    // re-pair within that first cooldown year.
+    const withOneYearCooldown = Simulation.init(
+      config((c) => {
+        c.union.minDurationYears = 1;
+        c.union.maxDurationYears = 1;
+        c.union.repairCooldownYears = 1;
+      }),
+      29,
+    );
+    const withNoCooldown = Simulation.init(
+      config((c) => {
+        c.union.minDurationYears = 1;
+        c.union.maxDurationYears = 1;
+        c.union.repairCooldownYears = 0;
+      }),
+      29,
+    );
+    withOneYearCooldown.step(20);
+    withNoCooldown.step(20);
+
+    const unionSeries = (sim: Simulation) =>
+      sim.stats().map((s) => s.activeUnions);
+
+    expect(unionSeries(withOneYearCooldown)).not.toEqual(
+      unionSeries(withNoCooldown),
+    );
+  });
+
+  it('restores a released follower\'s own speed on dissolution', () => {
+    // applyBodies overwrites a bonded follower's `speed` with the leader's,
+    // so the pair moves as one body. Nothing ever restored it when the
+    // union ended, so roughly half the population kept a borrowed speed
+    // forever — a violation of "speed is constant for an agent's lifetime".
+    // dissolve() must now restore `speed` from `ownSpeed` for every member
+    // it releases.
+    const sim = TestableSimulation.init(DEFAULT_CONFIG, 40);
+    const leader = sim.agent(0);
+    const follower = sim.agent(1);
+    const followerOriginalSpeed = follower.speed;
+
+    // Sanity: the two agents must start with distinct speeds, otherwise the
+    // test can't distinguish "restored" from "still borrowed".
+    expect(followerOriginalSpeed).not.toBe(leader.speed);
+
+    // Simulate what applyBodies does while the pair is bonded.
+    follower.speed = leader.speed;
+    expect(follower.speed).not.toBe(follower.ownSpeed);
+
+    const union = sim.createUnion(leader.id, follower.id, sim.year, 5);
+    sim.dissolveUnion(union, null);
+
+    expect(follower.speed).toBe(followerOriginalSpeed);
+    expect(follower.speed).toBe(follower.ownSpeed);
+    // The leader's own speed was never disturbed; restoring from ownSpeed
+    // is a no-op for it, which is fine.
+    expect(leader.speed).toBe(leader.ownSpeed);
   });
 });
 

@@ -13,6 +13,13 @@ export interface Agent {
   dy: number;
   /** World units per year. */
   speed: number;
+  /**
+   * The agent's own speed, sampled once at birth and never overwritten.
+   * `speed` is temporarily set equal to a bonded leader's speed while the
+   * agent is a follower in a union; `ownSpeed` is restored to `speed` on
+   * dissolution. Speed is constant for an agent's lifetime per the design.
+   */
+  ownSpeed: number;
   /** May be negative for the initial population, which starts mid-life. */
   birthYear: number;
   lifespan: number;
@@ -38,6 +45,7 @@ export function createAgent(params: {
   const { id, gender, x, y, birthYear, config, rng } = params;
   const movement = rng.stream('movement');
   const angle = movement.range(0, Math.PI * 2);
+  const speed = movement.range(config.speed.min, config.speed.max);
 
   return {
     id,
@@ -46,7 +54,8 @@ export function createAgent(params: {
     y,
     dx: Math.cos(angle),
     dy: Math.sin(angle),
-    speed: movement.range(config.speed.min, config.speed.max),
+    speed,
+    ownSpeed: speed,
     birthYear,
     lifespan: sampleLifespan(rng.stream('lifespan'), config, gender),
     partnerId: null,

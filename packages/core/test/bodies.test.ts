@@ -111,4 +111,23 @@ describe('applyBodies', () => {
     expect(b.dy).toBe(a.dy);
     expect(b.speed).toBe(a.speed);
   });
+
+  it('leaves ownSpeed untouched when a follower borrows the leader\'s speed', () => {
+    const a = make(3, 100, 100);
+    const b = make(8, 110, 100);
+    a.partnerId = 8;
+    b.partnerId = 3;
+    b.speed = 99;
+    b.ownSpeed = 99;
+    const byId = new Map([
+      [3, a],
+      [8, b],
+    ]);
+    applyBodies(buildBodies([a, b], DEFAULT_CONFIG), byId, DEFAULT_CONFIG);
+    // speed is temporarily overwritten for bonded movement...
+    expect(b.speed).toBe(a.speed);
+    // ...but ownSpeed, the agent's real, lifelong speed, is not.
+    expect(b.ownSpeed).toBe(99);
+    expect(b.ownSpeed).not.toBe(b.speed);
+  });
 });
