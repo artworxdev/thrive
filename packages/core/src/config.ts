@@ -34,7 +34,7 @@ export interface SimConfig {
 }
 
 export const DEFAULT_CONFIG: SimConfig = {
-  world: { width: 1000, height: 600 },
+  world: { width: 500, height: 300 },
   startingPopulation: 200,
   maxAgents: 2000,
   sexRatioMale: 0.5,
