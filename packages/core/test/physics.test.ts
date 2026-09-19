@@ -206,13 +206,13 @@ describe('stepBodies', () => {
     expect(first.bodies.map((b) => b.x)).toEqual(second.bodies.map((b) => b.x));
   });
 
-  it('keeps a body inside the world when a larger body separates it against a wall', () => {
+  it('keeps every body clear of the wall by its own radius', () => {
     const grid = new SpatialGrid(100, 100, 32);
     const small = body({ agentId: 1, x: 4, y: 50, dx: 0, dy: 0, speed: 0, radius: 4 });
-    const large = body({ agentId: 2, x: 6, y: 50, dx: 0, dy: 0, speed: 0, radius: 12 });
+    const large = body({ agentId: 2, x: 14, y: 50, dx: 0, dy: 0, speed: 0, radius: 12 });
     stepBodies([small, large], world, grid, 1 / 30);
-    expect(small.x).toBeGreaterThanOrEqual(0);
-    expect(small.y).toBeGreaterThanOrEqual(0);
-    expect(small.x).toBeLessThanOrEqual(100);
+    expect(small.x).toBeGreaterThanOrEqual(small.radius);
+    expect(small.y).toBeGreaterThanOrEqual(small.radius);
+    expect(small.x).toBeLessThanOrEqual(100 - small.radius);
   });
 });

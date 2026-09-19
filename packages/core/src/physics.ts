@@ -124,9 +124,11 @@ export function stepBodies(
     if (resolveCollision(a, b)) encounters.push([idA, idB]);
   }
 
-  // Re-clamp positions after collision resolution, since separation can push
-  // bodies outside the world bounds. Direction is left unchanged; the next
-  // sub-step's bounceWalls handles any redirects needed.
+  // Re-clamp positions after collision resolution to ensure every body's edges
+  // stay at least one radius away from the world boundaries. This hardens the
+  // postcondition to "fully inside by its radius", which is what the renderer
+  // needs. Direction is left unchanged; the next sub-step's bounceWalls handles
+  // any redirects needed.
   for (const body of bodies) {
     body.x = Math.min(world.width - body.radius, Math.max(body.radius, body.x));
     body.y = Math.min(world.height - body.radius, Math.max(body.radius, body.y));
