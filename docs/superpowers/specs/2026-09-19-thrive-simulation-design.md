@@ -144,7 +144,19 @@ biology never reference each other.
   the numbers another system receives.
 
 The same seed plus the same config always produces the same run, in the
-browser and in the CLI alike.
+browser and in the CLI alike, **for a given JavaScript engine**. Host-and-
+container verification (macOS host vs. Linux Docker) confirms this, but both
+of those run V8, so that comparison was always going to agree. It does not
+demonstrate cross-engine reproducibility: `Math.sin`, `Math.cos`, `Math.log`
+and `Math.hypot` — used respectively in `rng.ts`'s Box-Muller transform,
+`agent.ts`'s initial direction sampling, and `physics.ts`'s distance
+calculation — are explicitly permitted by ECMAScript to be
+implementation-approximated, so a different engine (e.g. a non-V8 browser)
+is not guaranteed to reproduce a fixture byte-for-byte. Bit-exact
+reproducibility across engines would require replacing those transcendental
+functions with fixed-point or polynomial implementations; that is a
+deliberate future change, not a property the current implementation
+provides.
 
 ## 4. Biology
 
