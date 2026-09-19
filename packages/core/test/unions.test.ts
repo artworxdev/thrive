@@ -127,7 +127,7 @@ describe('union dissolution', () => {
   });
 
   it('applies the re-pair cooldown after a union ends', () => {
-    const strict = Simulation.init(
+    const withCooldown = Simulation.init(
       config((c) => {
         c.union.minDurationYears = 1;
         c.union.maxDurationYears = 1;
@@ -135,7 +135,7 @@ describe('union dissolution', () => {
       }),
       29,
     );
-    const loose = Simulation.init(
+    const withoutCooldown = Simulation.init(
       config((c) => {
         c.union.minDurationYears = 1;
         c.union.maxDurationYears = 1;
@@ -143,11 +143,15 @@ describe('union dissolution', () => {
       }),
       29,
     );
-    strict.step(40);
-    loose.step(40);
-    expect(strict.stats().at(-1)!.activeUnions).toBeLessThan(
-      loose.stats().at(-1)!.activeUnions,
-    );
+    withCooldown.step(20);
+    withoutCooldown.step(20);
+
+    // Instantaneous active-union counts churn every year with one-year
+    // unions, so compare total union-years across the whole run.
+    const total = (sim: Simulation) =>
+      sim.stats().reduce((acc, s) => acc + s.activeUnions, 0);
+
+    expect(total(withCooldown)).toBeLessThan(total(withoutCooldown));
   });
 });
 
