@@ -60,14 +60,21 @@ describe('births', () => {
 
   it('starts every newborn at age zero, unpartnered', () => {
     const sim = Simulation.init(DEFAULT_CONFIG, 44);
-    sim.step(30);
+    // Stepping only 15 years, rather than 30, keeps every newborn below the
+    // default fertility minAge of 18, so none of them can have formed a
+    // union yet — this test is about the state a newborn starts in, not
+    // about whether it stays unpartnered indefinitely. (At 30 years, a
+    // newborn from early in the run can legitimately reach fertility age
+    // and pair up, which is correct behaviour, not a bug.)
+    sim.step(15);
     const newborns = sim
       .snapshot()
       .agents.filter((a) => a.id >= DEFAULT_CONFIG.startingPopulation);
     expect(newborns.length).toBeGreaterThan(0);
     for (const newborn of newborns) {
       expect(newborn.age).toBeGreaterThanOrEqual(0);
-      expect(newborn.age).toBeLessThanOrEqual(30);
+      expect(newborn.age).toBeLessThan(DEFAULT_CONFIG.fertility.male.minAge);
+      expect(newborn.age).toBeLessThan(DEFAULT_CONFIG.fertility.female.minAge);
       expect(newborn.partnerId).toBeNull();
     }
   });
