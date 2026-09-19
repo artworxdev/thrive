@@ -48,4 +48,9 @@ export class UnionRegistry {
   get size(): number {
     return this.unions.size;
   }
+
+  clear(): void {
+    this.unions.clear();
+    this.nextId = 0;
+  }
 }

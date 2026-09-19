@@ -61,6 +61,10 @@ export class StatsRecorder {
       ? null
       : this.samples[this.samples.length - 1]!;
   }
+
+  clear(): void {
+    this.samples.length = 0;
+  }
 }
 
 export function toCsv(series: StatsSeries): string {

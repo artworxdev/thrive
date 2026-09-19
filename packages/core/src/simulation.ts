@@ -1,5 +1,7 @@
 import type {
   AgentId,
+  Command,
+  CommandResult,
   Snapshot,
   StatsSample,
   StatsSeries,
@@ -12,7 +14,7 @@ import { stepBodies } from './physics.js';
 import { buildBodies, applyBodies } from './bodies.js';
 import { ageOf, createInitialPopulation } from './agent.js';
 import type { Agent } from './agent.js';
-import { StatsRecorder, computeSample } from './stats.js';
+import { StatsRecorder, computeSample, toCsv, toJson } from './stats.js';
 import { UnionRegistry } from './union.js';
 import type { Union } from './union.js';
 import { canFormUnion } from './rules/pairing.js';
@@ -20,16 +22,16 @@ import { createOffspring } from './rules/birth.js';
 
 export class Simulation {
   protected readonly config: SimConfig;
-  protected readonly rng: Rng;
+  protected rng: Rng;
   protected readonly subStepsPerYear: number;
   protected readonly grid: SpatialGrid;
-  protected readonly recorder = new StatsRecorder();
+  protected recorder = new StatsRecorder();
 
   /** Kept in ascending id order at all times. */
   protected agents: Agent[];
   protected byId = new Map<AgentId, Agent>();
   protected nextAgentId: number;
-  protected readonly unions = new UnionRegistry();
+  protected unions = new UnionRegistry();
 
   /** Integer sub-step counter — the authoritative clock, so year boundaries
    *  land exactly and never drift through floating-point accumulation. */
@@ -114,6 +116,48 @@ export class Simulation {
 
   stats(): StatsSeries {
     return this.recorder.series();
+  }
+
+  command(cmd: Command): CommandResult {
+    switch (cmd.type) {
+      case 'reset':
+        this.reset(cmd.seed);
+        return { type: 'ok' };
+      case 'runToYear': {
+        const remaining = cmd.year - this.year;
+        if (remaining > 0) this.step(remaining);
+        return { type: 'ok' };
+      }
+      case 'exportStats':
+        return {
+          type: 'stats',
+          format: cmd.format,
+          data:
+            cmd.format === 'csv'
+              ? toCsv(this.stats())
+              : toJson(this.stats()),
+        };
+    }
+  }
+
+  protected reset(seed: number): void {
+    this.rng = new Rng(seed);
+    this.unions.clear();
+    this.recorder.clear();
+    this.grid.clear();
+
+    this.subStepsElapsed = 0;
+    this.fractionalSubSteps = 0;
+    this.birthsThisYear = 0;
+    this.deathsThisYear = 0;
+    this.suppressedBirthsThisYear = 0;
+
+    this.agents = createInitialPopulation(this.config, this.rng);
+    this.byId = new Map();
+    for (const agent of this.agents) this.byId.set(agent.id, agent);
+    this.nextAgentId = this.agents.length;
+
+    this.recorder.record(this.buildSample());
   }
 
   protected runSubStep(dt: number): void {
