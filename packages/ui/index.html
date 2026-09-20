@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Thrive</title>
+  </head>
+  <body>
+    <main>
+      <section class="stage">
+        <canvas id="world"></canvas>
+        <p id="status" class="status" hidden></p>
+      </section>
+      <aside class="panel">
+        <section class="controls">
+          <div class="row">
+            <button id="play">Play</button>
+            <button id="stepYear">Step 1 year</button>
+            <button id="reset">Reset</button>
+          </div>
+          <label>
+            Seconds per year <output id="speedValue"></output>
+            <input id="speed" type="range" min="0.05" max="5" step="0.05" />
+          </label>
+          <label>
+            Seed <input id="seed" type="number" value="42" />
+          </label>
+          <div class="row">
+            <label>
+              Run to year <input id="targetYear" type="number" value="200" />
+            </label>
+            <button id="runTo">Go</button>
+            <button id="cancel" disabled>Cancel</button>
+          </div>
+          <label class="inline">
+            <input id="colorByAge" type="checkbox" /> Colour by age
+          </label>
+          <div class="row">
+            <button id="exportCsv">Export CSV</button>
+          </div>
+          <details>
+            <summary>Configuration (applied on reset)</summary>
+            <textarea id="config" spellcheck="false" rows="18"></textarea>
+            <p id="configError" class="error" hidden></p>
+          </details>
+        </section>
+        <section class="stats">
+          <dl id="statsNumbers"></dl>
+          <canvas id="chart" height="160"></canvas>
+        </section>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

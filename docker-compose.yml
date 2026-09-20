@@ -1,0 +1,23 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    ports:
+      - "8080:80"
+
+  sim:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.cli
+    volumes:
+      - ./out:/out
+    profiles: ["cli"]
+    # Default invocation. The CLI only writes the .config.json sidecar
+    # alongside the CSV when --out is given, so a default is set here to
+    # keep a run's configuration attached to its results by default. Any of
+    # these flags can be overridden by passing your own after `sim`, e.g.
+    # `docker compose run --rm sim --years 200 --seed 7`, but note that
+    # doing so replaces this entire default command, including --out — add
+    # your own --out (and --format/--config) if you still want the sidecar.
+    command: ["--years", "500", "--seed", "42", "--out", "/out/run.csv"]

@@ -1,0 +1,20 @@
+{
+  "name": "thrive",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b packages/core packages/worker packages/ui packages/cli",
+    "golden:update": "npx tsx packages/cli/scripts/update-golden.ts",
+    "build": "npm run build --workspace @thrive/ui"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4",
+    "tsx": "^4.19.2",
+    "@types/node": "^22.10.2"
+  }
+}

@@ -675,7 +675,7 @@ export interface SimConfig {
 }
 
 export const DEFAULT_CONFIG: SimConfig = {
-  world: { width: 1000, height: 600 },
+  world: { width: 500, height: 300 },
   startingPopulation: 200,
   maxAgents: 2000,
   sexRatioMale: 0.5,
@@ -1557,7 +1557,7 @@ export function stepBodies(
 - [ ] **Step 4: Run the test and verify it passes**
 
 Run: `npx vitest run packages/core/test/physics.test.ts`
-Expected: PASS, 16 tests.
+Expected: PASS, 18 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -2378,6 +2378,15 @@ function config(over: (c: SimConfig) => void = () => {}): SimConfig {
   return c;
 }
 
+/**
+ * Death and extinction are properties of aging alone, so these tests disable
+ * union formation. Without this they would pass in this task and break in
+ * Tasks 9 and 10, when births begin to sustain the population.
+ */
+const barren = config((c) => {
+  c.union.chance = 0;
+});
+
 describe('Simulation.init', () => {
   it('starts at year zero with the configured population', () => {
     const sim = Simulation.init(DEFAULT_CONFIG, 1);
@@ -2435,7 +2444,7 @@ describe('Simulation.step', () => {
   });
 
   it('ages the population', () => {
-    const sim = Simulation.init(DEFAULT_CONFIG, 3);
+    const sim = Simulation.init(barren, 3);
     const before = sim.stats()[0]!.meanAge;
     sim.step(5);
     const after = sim.stats().at(-1)!.meanAge;
@@ -2445,13 +2454,11 @@ describe('Simulation.step', () => {
   });
 
   it('removes agents who reach their lifespan', () => {
-    const sim = Simulation.init(DEFAULT_CONFIG, 4);
+    const sim = Simulation.init(barren, 4);
     sim.step(40);
     const deaths = sim.stats().reduce((acc, s) => acc + s.deaths, 0);
     expect(deaths).toBeGreaterThan(0);
-    expect(sim.agentCount).toBe(
-      DEFAULT_CONFIG.startingPopulation - deaths,
-    );
+    expect(sim.agentCount).toBe(barren.startingPopulation - deaths);
   });
 
   it('keeps every agent inside the world', () => {
@@ -2493,7 +2500,7 @@ describe('Simulation.step', () => {
 
 describe('extinction', () => {
   it('empties and reports extinct once everyone has died of old age', () => {
-    const sim = Simulation.init(DEFAULT_CONFIG, 8);
+    const sim = Simulation.init(barren, 8);
     sim.step(200);
     expect(sim.agentCount).toBe(0);
     expect(sim.extinct).toBe(true);
@@ -2501,7 +2508,7 @@ describe('extinction', () => {
   });
 
   it('stops advancing the year once extinct', () => {
-    const sim = Simulation.init(DEFAULT_CONFIG, 8);
+    const sim = Simulation.init(barren, 8);
     sim.step(200);
     const yearAtExtinction = sim.year;
     const samples = sim.stats().length;
@@ -3104,13 +3111,14 @@ describe('union dissolution', () => {
       }),
       26,
     );
-    sim.step(5);
-    const unionsEarly = sim.stats()[3]!.activeUnions;
-    sim.step(1);
-    // With one- to two-year unions, the count churns rather than only growing.
+    sim.step(20);
     const counts = sim.stats().map((s) => s.activeUnions);
-    expect(Math.min(...counts.slice(2))).toBeLessThan(Math.max(...counts));
-    expect(unionsEarly).toBeGreaterThanOrEqual(0);
+    const peak = Math.max(...counts);
+    expect(peak).toBeGreaterThan(0);
+    // Short unions must dissolve, so the count falls back below its peak
+    // rather than only ever growing.
+    const afterPeak = counts.slice(counts.indexOf(peak) + 1);
+    expect(Math.min(...afterPeak)).toBeLessThan(peak);
   });
 
   it('releases the survivor when a partner dies', () => {
@@ -4607,6 +4615,11 @@ UI package owns a one-line re-export that the worker URL points at.
 // Vite needs a relative worker entry; the implementation lives in @thrive/worker.
 import '@thrive/worker/src/worker.js';
 ```
+
+If Vite cannot resolve that bare specifier to the TypeScript source, replace the
+import with the relative path `'../../worker/src/worker.ts'`. Verify which form
+works before finishing the task — the worker failing to load is silent in the
+console until a snapshot never arrives.
 
 `packages/ui/src/simClient.ts`:
 
